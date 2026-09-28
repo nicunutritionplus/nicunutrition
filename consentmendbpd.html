@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Consent Conversation Trainer</title>
+<style>:root {
+  --bg: #f7f6f2; --surface: #ffffff; --surface-2: #f0eee8; --fg: #1d2127; --muted: #5f6772;
+  --line: #e2dfd7; --accent: #2f6f73; --accent-fg: #ffffff; --accent-soft: #e3efef;
+  --good: #2e7d4f; --good-soft: #e5f3ea; --bad: #b3261e; --bad-soft: #fbe9e7;
+  --warn: #9a5b00; --warn-soft: #fdf0d5; --quote: #f3f1ec;
+  --radius: 10px; --shadow: 0 1px 2px rgba(0,0,0,.05), 0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171a; --surface: #1d2024; --surface-2: #24282d; --fg: #e7e4de; --muted: #9ba2ac;
+    --line: #30353b; --accent: #7cc1c4; --accent-fg: #0f1a1b; --accent-soft: #1e3334;
+    --good: #7fd19b; --good-soft: #1b2e22; --bad: #ff8a80; --bad-soft: #3a1f1d;
+    --warn: #ffc266; --warn-soft: #3a2e17; --quote: #22262b; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171a; --surface: #1d2024; --surface-2: #24282d; --fg: #e7e4de; --muted: #9ba2ac;
+  --line: #30353b; --accent: #7cc1c4; --accent-fg: #0f1a1b; --accent-soft: #1e3334;
+  --good: #7fd19b; --good-soft: #1b2e22; --bad: #ff8a80; --bad-soft: #3a1f1d;
+  --warn: #ffc266; --warn-soft: #3a2e17; --quote: #22262b; --shadow: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+button, input, textarea, select { font: inherit; color: inherit; }
+h1, h2, h3 { line-height: 1.25; margin: 0 0 8px; }
+h1 { font-size: 1.5rem; } h2 { font-size: 1.15rem; } h3 { font-size: 1rem; }
+p { margin: 0 0 10px; }
+.muted { color: var(--muted); } .small { font-size: .85rem; }
+
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0; z-index: 5; }
+.brand { background: none; border: 0; font-weight: 650; cursor: pointer; padding: 4px 0; }
+.draft { font-size: .78rem; color: var(--warn); background: var(--warn-soft); padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+main { max-width: 1180px; margin: 0 auto; padding: 20px 16px 64px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+.stack > * + * { margin-top: 12px; }
+.grid { display: grid; gap: 12px; }
+.grid.cols-2 { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.grid.cols-3 { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.spacer { flex: 1; }
+
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:focus-visible, .choice:focus-visible, .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pick { text-align: left; cursor: pointer; width: 100%; }
+.pick.selected { border-color: var(--accent); background: var(--accent-soft); }
+.pill { display: inline-block; font-size: .75rem; padding: 1px 8px; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
+.pill.hard { color: var(--bad); background: var(--bad-soft); }
+.pill.moderate { color: var(--warn); background: var(--warn-soft); }
+.pill.subtle { color: var(--accent); background: var(--accent-soft); }
+label.field { display: block; font-size: .85rem; color: var(--muted); }
+label.field input, label.field textarea { display: block; width: 100%; margin-top: 4px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+
+/* Session layout */
+.session { display: grid; grid-template-columns: 250px 1fr; gap: 16px; align-items: start; }
+.session.guided { grid-template-columns: 250px 1fr 340px; }
+.sidebar { position: sticky; top: 64px; max-height: calc(100vh - 80px); overflow: auto; }
+.modlist { list-style: none; padding: 0; margin: 0; }
+.modlist button { width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 6px 8px; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+.modlist button:hover { background: var(--surface-2); }
+.modlist button.current { background: var(--accent-soft); font-weight: 600; }
+.dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
+.dot.partial { border-color: var(--warn); background: var(--warn-soft); }
+.dot.done { border-color: var(--good); background: var(--good); }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
+.tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 10px; cursor: pointer; color: var(--muted); }
+.tab.active { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+blockquote { margin: 0; background: var(--quote); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 0 8px 8px 0; font-family: Georgia, "Iowan Old Style", serif; font-size: 1.02rem; }
+.checks label { display: flex; gap: 8px; align-items: flex-start; padding: 3px 0; cursor: pointer; }
+.checks input { margin-top: 4px; accent-color: var(--accent); }
+
+.parent { display: flex; gap: 12px; align-items: flex-start; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; flex: none; }
+.bubble { background: var(--surface-2); border-radius: 4px 12px 12px 12px; padding: 10px 14px; }
+.nonverbal { font-style: italic; color: var(--muted); font-size: .88rem; }
+
+.choice { display: block; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 10px 12px; cursor: pointer; }
+.choice:hover:not(:disabled) { border-color: var(--accent); }
+.choice.correct { border-color: var(--good); background: var(--good-soft); }
+.choice.wrong { border-color: var(--bad); background: var(--bad-soft); }
+.choice:disabled { cursor: default; }
+.choices > * + * { margin-top: 8px; }
+.feedback { border-radius: 8px; padding: 10px 14px; }
+.feedback.good { background: var(--good-soft); } .feedback.bad { background: var(--bad-soft); }
+.feedback.info { background: var(--accent-soft); } .feedback.warn { background: var(--warn-soft); }
+ul.avoid { margin: 4px 0 0; padding-left: 20px; } ul.avoid li::marker { content: "✕  "; color: var(--bad); }
+.withheld { font-size: .82rem; color: var(--warn); }
+
+.reactions { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.reactions .choice { padding: 7px 10px; font-size: .9rem; }
+.reactions .choice.active { border-color: var(--accent); background: var(--accent-soft); }
+
+/* Debrief */
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.stat { background: var(--surface-2); border-radius: 8px; padding: 12px; }
+.stat b { display: block; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+table { width: 100%; border-collapse: collapse; }
+td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: .8rem; color: var(--muted); font-weight: 600; }
+.sev { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.sev.critical { color: var(--bad); } .sev.major { color: var(--warn); } .sev.minor { color: var(--muted); }
+.timeline { font-size: .88rem; }
+.timeline td:first-child { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: grid; place-items: center; padding: 16px; z-index: 10; }
+.modal { max-width: 560px; width: 100%; max-height: 85vh; overflow: auto; }
+
+@media (max-width: 1000px) {
+  .session.guided { grid-template-columns: 220px 1fr; }
+  .session.guided .reaction-col { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .session, .session.guided { grid-template-columns: 1fr; }
+  .sidebar { position: static; max-height: none; }
+  .topbar .draft { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <button class="brand" data-action="home">Consent Conversation Trainer</button>
+  <span class="draft">Draft · simulated training only</span>
+</header>
+<main id="app"></main>
+<script>window.CONTENT = {"generic": {"meta": {"title": "Generic reaction script library", "version": "0.1.0-draft", "status": "DRAFT - not reviewed by an IRB. For simulated training only.", "evidence_source": "Why parents decline preterm comparative-effectiveness trials, with emphasis on nutrition trials: a scoping review (Sept 2026). Reference numbers below follow that report's reference list.", "placeholder_note": "{{double_braces}} are filled from each study's content pack. A script with an unfilled placeholder must not be shown in a session.", "principle": "Scripts aim at understanding and a free decision, not enrollment. Better understanding does not necessarily change the decision [41], and that is the intended outcome."}, "reactions": [{"id": "quick_yes", "label": "Agrees immediately", "cues": ["Says yes before risks or burden have been discussed", "\"Whatever helps, sign me up\"", "Reaches for the pen early"], "profiles": ["all"], "move": "Slow down warmly and finish every required element, then check understanding with teach-back.", "script": "Thank you, I'm glad this feels like something you'd want to do. Before you decide, I'd like to go through the rest, including the parts that make some parents say no. That way the decision is fully yours.", "teach_back": "Can you tell me in your own words what would be different for {{baby_name}} if you join?", "why": "A quick yes often means the risks haven't registered yet. Finishing the conversation protects the family and the validity of the consent.", "avoid": ["Going straight to the signature", "Skipping risks or burden because the parent seems sure"], "flag_on_wrong": "quick_yes_accepted"}, {"id": "guinea_pig", "label": "\"I don't want my baby to be an experiment\"", "cues": ["Uses words like guinea pig, test subject, experiment", "Recoils at the word research"], "profiles": ["all"], "variants": {"cer": {"move": "Acknowledge the feeling, then say accurately what is and isn't new.", "script": "That's a very fair thing to feel. In this study {{baby_name}} would only get care that's already used for babies here: both {{arm_a}} and {{arm_b}} are part of routine NICU care. What the study changes is how the choice is made, by chance instead of by the team, plus {{added_study_procedures}}. Some parents still aren't comfortable with that, and that's a completely fine answer."}, "experimental": {"move": "Agree honestly that it is experimental. Don't try to soften it.", "script": "You're right: {{intervention}} is being tested because we don't yet know whether it helps or what all its risks are. That's exactly why we ask, and why saying no is always an option. Your baby's care stays the same either way."}, "in_between": {"move": "Separate what is established from what is being tested.", "script": "Part of this is familiar: {{established_part}} is already used here. What's new is {{new_part}}, and that's the part we're studying. It's okay not to want that."}}, "teach_back": "What would you tell a family member about what's new in this study and what isn't?", "why": "Parents need to know exactly what is new. Arguing with the feeling makes them trust you less.", "avoid": ["\"It's not really research\"", "\"It's basically the same as normal care\" (if randomization or added procedures change anything)", "Debating the parent's values"], "category": "Aversion to being experimented on"}, {"id": "baseline_vs_study_risk", "label": "Mixes up the baby's illness risk with study risk", "cues": ["\"What if she gets NEC because of the study?\"", "Attributes any bad outcome to the study", "Or the opposite: \"She's at risk anyway, so it doesn't matter\""], "profiles": ["all"], "move": "Separate the two risks explicitly and name the study's own risk. Don't shrink it.", "script": "That's an important question, and it helps to separate two things. Babies born at {{gestational_age}} have a risk of {{baseline_conditions}} whether or not they are in any study. That's part of being born early. What the study could change is {{incremental_risk}}. Here is what we know about that, and how we'd watch for it: {{monitoring}}.", "teach_back": "Which risks would {{baby_name}} have either way, and which could come from the study?", "why": "This correction works in both directions. It shouldn't scare parents about risks the study doesn't cause, and it shouldn't hide the risks it does add.", "avoid": ["Using baseline risk to make study risk seem trivial (\"she's at risk anyway\")", "\"There is no extra risk\" unless the IRB-approved form says so"], "flag_on_wrong": "baseline_minimized"}, {"id": "wants_normal_care", "label": "Prefers \"normal\" care", "cues": ["\"I just want her to get normal care\"", "Sees one arm as abnormal"], "profiles": ["cer", "in_between"], "move": "Describe accurately what usual care here actually is, including its variation, then restate that no is fine.", "script": "That makes sense. If you don't join, {{baby_name}} gets usual care, which here means {{usual_care_description}}. The team decides based on {{how_team_decides}}. In the study, both options are ones babies here already get. The difference is that chance decides instead. Choosing usual care is a completely good choice.", "teach_back": "What would happen with {{baby_name}}'s care if you decide not to join?", "why": "Parents often don't know that 'normal care' already varies between units and clinicians. Explaining it helps them understand. It shouldn't be used as an argument to join.", "avoid": ["Implying usual care is worse or arbitrary", "\"Normal care is basically a coin flip anyway\""]}, {"id": "feeding_safety_fear", "label": "Fears a feeding change will hide or cause harm", "cues": ["\"Won't this make it harder to catch NEC?\"", "Worried about aspiration, vomiting, pain, infection", "\"Feeding is how she's getting better\""], "profiles": ["cer", "in_between", "experimental"], "move": "Make the safety monitoring and the rescue or stopping rules concrete.", "script": "Feeding is such a big part of how she's doing, so it makes sense to worry about that. Here's how the team keeps watch: {{feeding_surveillance}}. If they're ever concerned, they act right away: they can {{rescue_pathway}}. The study never stops them from doing what {{baby_name}} needs. {{stopping_rules}}.", "teach_back": "If the nurses saw a sign of trouble with her feeds, what would happen?", "why": "The fear is reasonable. Parents need to hear specific safeguards, not general reassurance.", "avoid": ["\"NEC won't happen\"", "\"The study is very safe\" without specifics"]}, {"id": "lactation_identity", "label": "Concern about own milk / breastfeeding", "cues": ["\"I want her to have my milk\"", "Objects to formula or donor milk", "Guilt or pressure about supply"], "profiles": ["all"], "applies_when": "Study touches milk source, fortification or formula", "move": "Put mother's own milk first and say how the study protects it. Then find out whether the objection is to the milk source or to the research.", "script": "Your own milk comes first, and nothing in this study changes that. {{how_study_supports_MOM}}. {{alternative_milk}} would only be used {{when_alternative_used}}. Can I ask: is your concern more about {{alternative_milk}} itself, or about being in a study? Both are important, and the team can talk with you about feeding choices separately from the research.", "teach_back": "What would happen to the milk you're pumping if you join?", "why": "A preference about milk source is a feeding decision, not a research decision. Keep the two separate so neither pressures the other.", "avoid": ["Any pressure about supply or pumping, in either direction", "Implying the study will 'help' with supply unless it does", "Treating a milk-source refusal as a research refusal to overcome"], "log_field": "milk_source_refusal (recorded separately from research decline)", "flag_on_wrong": "milk_source_conflated"}, {"id": "burden", "label": "Worried about time, travel or follow-up", "cues": ["\"We live two hours away\"", "Other children at home, work", "\"How many appointments?\""], "profiles": ["all"], "move": "Lay out the full burden honestly and specifically. State supports as facts, not incentives.", "script": "Here's exactly what joining would mean for your family: {{visit_schedule}}. {{remote_options}}. {{travel_or_reimbursement}}. If that's too much right now, that is a completely valid reason to say no, and it won't affect {{baby_name}}'s care.", "teach_back": "What would the next {{follow_up_period}} look like for you if you join?", "why": "Underplaying burden leads to later withdrawal and broken trust. Reimbursement is information, not a reason to join.", "avoid": ["\"It's only a few visits\"", "Leading with payment", "Hiding optional add-ons among required visits"], "flag_on_wrong": "burden_understated"}, {"id": "overwhelmed", "label": "Overwhelmed / bad timing", "cues": ["Tearful, flat, repeating questions", "Just delivered, baby unstable", "\"I can't think right now\""], "profiles": ["all"], "variants": {"flexible_window": {"move": "Pause and offer a specific return time.", "script": "You've had so much happen. This doesn't need to be decided now. We have until {{decision_window}}. Could I leave this with you and come back {{return_time}}, or whenever suits you?"}, "time_critical": {"move": "Be honest about the time limit, and make no the easy answer.", "script": "I'm sorry to bring this up at such a hard time. This study has to start within {{decision_window}}, so there isn't much time to think. If it's too much right now, saying no is completely okay, and {{baby_name}} will get the usual care."}}, "why": "Consent from a parent who can't take it in isn't valid. Pausing is the correct move, not a lost opportunity.", "avoid": ["\"Since I'm here anyway...\"", "Shortening the explanation to fit a short window"], "flag_on_wrong": "no_pause_offered"}, {"id": "distrust", "label": "Distrust of researchers or research", "cues": ["\"Who are you, exactly?\"", "Mentions Tuskegee, past abuses, racism", "\"What's in it for you?\""], "profiles": ["all"], "move": "Validate without defensiveness, explain the concrete protections, and restate the right to stop.", "script": "Many families have very good reasons to be careful about research, and I'd rather you ask than not. Here's what protects {{baby_name}}: {{protections}}. You can stop at any time without giving a reason, and {{baby_name}}'s care stays the same.", "why": "Being defensive confirms the distrust. Specific protections are more believable than general reassurance.", "avoid": ["\"That was a long time ago\"", "\"Things are different now\" without specifics", "Taking it personally"]}, {"id": "wants_own_doctor", "label": "Wants to hear from the baby's own doctor", "cues": ["\"What does Dr. X think?\"", "\"Would you do this for your baby?\""], "profiles": ["all"], "move": "Connect them with the clinical team for information. Keep clinician opinion out of the decision.", "script": "Of course, you can talk with {{attending_role}} about it. They know the study and can answer medical questions about {{baby_name}}. They'll care for {{baby_name}} the same way whether or not you join. On whether I'd do it myself: honestly, the reason for the study is that nobody knows yet which option is better.", "why": "Contact with the clinical team builds trust. A clinician's endorsement, on the other hand, can become undue influence given the power they hold over the baby's care.", "avoid": ["\"Dr. X wants you to join\"", "Sharing any clinician's preference between arms", "Answering \"would you?\" with a personal yes"], "flag_on_wrong": "clinician_endorsement"}, {"id": "randomization_confusion", "label": "Misunderstands randomization", "cues": ["\"So the doctors pick the better one?\"", "\"Can I choose which group?\"", "Thinks allocation is based on the baby's needs"], "profiles": ["all"], "move": "Use the coin-flip analogy, state the uncertainty, then teach-back.", "script": "That's a really common question. Actually, no one picks. It's like flipping a coin: a computer decides, and neither I nor {{baby_name}}'s doctors choose. We do it that way because right now we honestly don't know which option is better. That's what the study is trying to find out.", "teach_back": "How would you explain to your partner how the {{allocation_noun}} gets chosen?", "why": "This corrects the therapeutic misconception at its source.", "avoid": ["\"Both options are great\" (implies the answer is known)", "\"You'll probably get the better one\""]}, {"id": "consent_model_concern", "label": "Concern about how consent works in this study", "cues": ["\"You mean she could be enrolled without me knowing?\"", "Surprised by opt-out, deferred or two-stage consent"], "profiles": ["all"], "applies_when": "Study uses an alternative consent model", "move": "Explain exactly this study's consent model and the right to withdraw. Don't be vague.", "script": "That's an important question. In this study, the way it works is {{consent_model_plain}}. {{why_this_model}}. At any point you can say you don't want {{baby_name}} included, and {{what_happens_to_data_on_withdrawal}}.", "why": "Being vague about an alternative consent model damages trust more than the model itself does.", "avoid": ["Minimizing the model (\"it's just paperwork\")", "Stating data handling on withdrawal that isn't in the approved form"]}, {"id": "study_fatigue", "label": "Already approached for other studies", "cues": ["\"This is the third person asking us\"", "Confuses this study with another"], "profiles": ["all"], "move": "Acknowledge the load. Make it clear each study is separate and optional.", "script": "That's a lot to be asked, especially now. You don't have to take part in any study, and saying no to this one doesn't affect the others or {{baby_name}}'s care. {{co_enrollment_note}}", "why": "Clearing up which study is which protects understanding when a family has been approached several times.", "avoid": ["Comparing studies to steer the family toward yours", "\"This one is the important one\""]}, {"id": "partner_absent", "label": "Needs to talk with partner / other parent", "cues": ["\"I need to talk to her dad/mom\"", "Other parent not present"], "profiles": ["all"], "move": "Support including the partner. Offer a joint session or a call.", "script": "Of course. That's a decision a lot of families want to make together. Would it help if I came back when you're both here, or set up a call? {{permission_requirement_note}}", "why": "It respects how families make decisions, and for some studies it's a regulatory requirement (for example, both parents' permission under 45 CFR 46.406 when it applies).", "avoid": ["\"You can sign now and tell them later\""]}, {"id": "declines", "label": "Declines", "cues": ["Says no", "\"I don't think so\"", "Avoids eye contact, wants you to leave"], "profiles": ["all"], "move": "Accept immediately and warmly. Offer an optional reason. Leave.", "script": "Thank you for thinking about it. {{baby_name}}'s care won't change in any way. You don't need to give a reason, but if you'd like to share one, it helps us understand how to talk with families. It's completely optional.", "why": "A no must be as easy as a yes. A reason is useful for research on representativeness, but it must never become an opening to argue.", "avoid": ["Any counter-argument after a no", "\"Can I just clear up one thing?\"", "Re-approaching unless the family invited it"], "log_field": "decline_reason (optional, parent-volunteered only)", "flag_on_wrong": "pressed_after_no", "ends_session": "declined"}], "pre_conversation_checklist": [{"id": "timing", "item": "Is this a reasonable time? Avoid labour and the first hours after birth unless the design requires it.", "refs": [10, 14, 19, 23]}, {"id": "clinical_intro", "item": "Has a bedside clinician introduced the study team?", "refs": [53, 64, 69]}, {"id": "co_enrollment", "item": "Checked the unit study register for other approaches to this family?", "refs": [39, 59]}, {"id": "partner", "item": "Does the family want the other parent present? Is both parents' permission required?", "refs": [42]}, {"id": "language", "item": "Interpreter or translated materials needed?", "refs": []}, {"id": "burden_facts", "item": "Visit schedule, remote options and travel support ready to explain?", "refs": [1, 8]}, {"id": "consent_model", "item": "Clear on this study's consent model and what happens on withdrawal?", "refs": [4, 6, 10]}], "debrief_flags": [{"id": "pressed_after_no", "label": "Continued persuading after a decline", "severity": "critical"}, {"id": "quick_yes_accepted", "label": "Accepted a quick yes before all elements were covered", "severity": "critical"}, {"id": "baseline_minimized", "label": "Used baseline illness risk to minimize study risk", "severity": "critical"}, {"id": "clinician_endorsement", "label": "Conveyed a clinician's preference or endorsement", "severity": "major"}, {"id": "prestige_persuasion", "label": "Raised the funder or study prestige, unprompted, as a reason to join", "severity": "major"}, {"id": "no_pause_offered", "label": "Continued despite overload cues without offering a pause", "severity": "major"}, {"id": "burden_understated", "label": "Understated visits, time or follow-up", "severity": "major"}, {"id": "milk_source_conflated", "label": "Treated a milk-source preference as a research refusal to overcome", "severity": "major"}, {"id": "no_teach_back", "label": "No teach-back on randomization or risk", "severity": "minor"}]}, "studies": [{"pack": {"meta": {"title": "MEND-BPD trial: study-specific script pack", "study_full_name": "Improving Lung Health in Premature Babies through Early Human Milk Enrichment: The More & Early Nutritional Delivery for Bronchopulmonary Dysplasia (MEND-BPD) Trial", "short_name": "MEND-BPD", "version": "0.2.0-draft", "status": "DRAFT - not reviewed by an IRB. For simulated training only.", "source": "Stamped consent form, UAB IRB-300016002 (approved 17-Jun-2026, valid until 27-Jan-2027)", "consent_version": "UAB IRB stamp 17-Jun-2026 (valid until 27-Jan-2027)", "irb_number": "IRB-300016002", "extends": "generic-scripts.json", "principle": "Every factual statement in these scripts comes from the MEND-BPD consent form or from the study team. Where both are silent, the script uses a {{placeholder}}. A script with an unfilled placeholder must not be shown in a session until the study team supplies the fact.", "runtime_placeholders": ["baby_name", "return_time"], "optional_component": null}, "profile": {"trial_type": "in_between", "trial_type_note": "Per the study team. The supplement is a commercial product (Enfamil DHA/ARA) added to human milk. What's being tested is giving it early (within 72 hours, for 14 days) to extremely preterm babies to prevent BPD.", "funding": "federal_extramural", "funding_note": "Funded by an NHLBI (NIH) research grant; single center. The form names both NHLBI (page 1) and the UAB Division of Neonatology (Additional Information) as sponsor.", "sites": "Single center (UAB; data also collected at Children's of Alabama if the baby is transferred)", "consent_model": "Standard written parental permission; one parent's permission is enough. Infant assent waived because of age.", "population": "Infants born at or before 28 weeks with birthweight of 1000 g or less, on a human-milk diet"}, "facts": {"arm_a": "human milk with an added DHA/ARA supplement", "arm_b": "human milk without the supplement", "allocation_noun": "group", "gestational_age": "28 weeks or earlier", "intervention": "the DHA/ARA supplement", "established_part": "Human milk feeding (your milk, and donor milk if needed) and all of the usual NICU care", "new_part": "adding a DHA/ARA supplement to the milk for the first 14 days", "usual_care_description": "human milk feeds (your milk, and donor milk if needed) without the DHA/ARA supplement", "how_team_decides": "how {{baby_name}} is growing and handling feeds", "added_study_procedures": "body fat measurements, milk samples when you have enough, two small blood samples, a short breathing test near 36 weeks, and information from the medical chart", "duration": "from birth until 36 weeks' gestational age or discharge", "visit_schedule": "Everything happens while {{baby_name}} is in the hospital. There are no visits after discharge", "remote_options": "Nothing is needed from you after {{baby_name}} goes home", "follow_up_period": "few weeks in the NICU", "travel_or_reimbursement": "There's no cost to you for the study, and no payment for taking part", "baseline_conditions": "feeding intolerance, infections and gut complications like NEC (about 4 in 100 premature babies have gut complications)", "incremental_risk": "whether the supplement changes the risk of feeding problems or gut complications. Based on earlier studies, the researchers don't expect either group to have more gut complications, but that's part of what is being watched", "decision_window": "this time tomorrow (you have 24 hours from when we first talked)", "permission_requirement_note": "For this study, one parent's permission is enough, but you're very welcome to decide together.", "alternative_milk": "donor milk", "how_study_supports_MOM": "Your own milk is used first. Donor milk only fills any gap, so that every baby in the study gets only human milk until about 33 to 34 weeks. The supplement isn't formula: it's added to the human milk", "when_alternative_used": "if your own milk doesn't cover what {{baby_name}} needs", "consent_model_plain": "we only include babies whose parents give written permission, like this form", "why_this_model": "It's the standard way we ask families for permission", "what_happens_to_data_on_withdrawal": "no new information will be collected. Information already collected may still be used if it's needed for the results to be reliable", "safety_monitoring": "A separate safety board (DSMB) reviews the study's safety data, watching feeding tolerance, NEC, intestinal perforations and deaths in both groups. Day to day, {{baby_name}}'s own NICU team watches {{baby_name}} as closely as any other baby", "feeding_surveillance": "the NICU team watches every baby for feeding problems, in the study or not, and all other care stays the standard NICU care", "stopping_rules": "The study doctor can also take {{baby_name}} off the study at any time if staying in isn't in {{baby_name}}'s best interest", "protections": "Your permission is required. You can stop at any time. An ethics board (the UAB IRB) reviewed and approved the study. {{safety_monitoring}}. You'll be told about any new information", "attending_role": "your baby's neonatologist", "funder": "the National Heart, Lung, and Blood Institute (NHLBI), part of the National Institutes of Health", "contacts": "The phone numbers for Dr. Salas, the study coordinator and the UAB IRB office are on the last page of the form. You can call any time with questions", "consent_version": "UAB IRB stamp 17-Jun-2026 (valid until 27-Jan-2027)", "manufacturer_role": "The company that makes it supplies the product but has no role in the study.", "blood_draw_method": "Both are taken at the same time as routine blood tests {{baby_name}} is already having, so there are no extra needle sticks for the study."}, "modules": [{"id": "why_asked", "title": "Why we're asking you", "must_cover": ["Voluntary", "Baby eligible because born at or before 28 weeks and weighing 1000 g or less", "Premature babies often don't get enough energy in the first two weeks, a critical time for lung growth", "The question: does adding two fats (DHA and ARA) to human milk help babies breathe better and lower the risk of BPD?"], "framings": {"plain": "We're asking because {{baby_name}} was born very early, at 28 weeks or before, and weighed 1000 grams or less. Babies born this early often don't get enough energy from milk in the first two weeks, which is an important time for their lungs to grow. We want to find out whether adding two healthy fats, called DHA and ARA, to human milk helps babies breathe better and lowers the risk of a long-term lung disease called BPD. Being in the study is completely your choice.", "visual": "Think of the first two weeks as a building phase for {{baby_name}}'s lungs. The study asks whether giving extra building material, two fats called DHA and ARA added to milk, during that phase makes the lungs stronger. We don't know yet.", "detail": "BPD (bronchopulmonary dysplasia) is a chronic lung disease of prematurity. The study is funded by an NHLBI research grant and done at UAB."}}, {"id": "groups", "title": "The two groups and how the group is chosen", "must_cover": ["Chance decides, like drawing marbles from a bag", "2-in-3 chance of the supplement group, 1-in-3 chance of the no-supplement group", "Twins or multiples are each assigned separately", "The supplement group gets one of two doses (low or high)"], "framings": {"plain": "If you agree, chance decides which group {{baby_name}} is in: human milk with the DHA/ARA supplement, or human milk without it. It's not 50-50. {{baby_name}} has a 2 in 3 chance of the supplement group and a 1 in 3 chance of the other group. If you have twins or more, each baby is assigned separately, so they could end up in different groups. Babies in the supplement group get one of two doses, a lower or a higher one. {{dose_assignment}}", "visual": "Picture a bag with 2 green marbles and 1 red marble. Green means supplement, red means no supplement. Without looking, we draw one marble for {{baby_name}}. Nobody chooses, and nobody knows which marble was drawn.", "detail": "Allocation 2:1 (intervention:control). Intervention doses: about 60 mg/kg/day DHA + 120 mg/kg/day ARA (low dose) or 120 mg/kg/day DHA + 240 mg/kg/day ARA (high dose). {{why_two_to_one}}"}, "trainer_note": "More babies go to the supplement group, but that doesn't mean the supplement is better. Never present the 2-in-3 odds as good news."}, {"id": "blinding", "title": "Nobody will know the group", "must_cover": ["The study is blinded", "Neither parents nor the healthcare team will know the group until the study is completed"], "framings": {"plain": "This study is blinded. That means neither you nor {{baby_name}}'s doctors and nurses will know which group {{baby_name}} is in until the whole study is finished. That way nobody's expectations can affect how babies are cared for or measured. {{unblinding_process}}", "visual": "It's like a taste test where nobody knows which cup is which, so everyone judges fairly. The milk looks the same in both groups to everyone caring for {{baby_name}}.", "detail": "Group allocation is concealed from families and the clinical team until study completion."}}, {"id": "feeds", "title": "Feeds and milk", "must_cover": ["Supplement starts within 72 hours of birth and is given for 14 days, then stops", "All babies get only human milk (mother's own milk and/or donor milk) until about 33-34 weeks", "What donor milk is and how it is made safe", "Feeds by mouth or tube", "All other care is standard NICU care"], "framings": {"plain": "If {{baby_name}} is in the supplement group, the supplement is added to the milk within 72 hours of birth and given for the first 14 days, then it stops. Either way, every baby in the study gets only human milk, meaning your own milk first and donor milk if needed, until about 33 to 34 weeks. Donor milk comes from healthy breastfeeding mothers who had extra milk. It's tested, screened and pasteurized. Feeds can be given by mouth or through a small tube from the nose to the stomach, and everything else about {{baby_name}}'s care is the usual NICU care.", "detail": "The product is the Enfamil DHA/ARA supplement, added to human-milk enteral feeds. {{manufacturer_role}}"}}, {"id": "procedures", "title": "Measurements and samples", "must_cover": ["Body fat measured 5 times (around birth, day 7, day 14, day 28, 36 weeks) with the Peapod or, if not stable enough to move, the BioScan at the bedside", "Growth measurements before each scan", "Milk samples at day 7 and 14, only if supply allows", "Two small blood samples (enrollment and day 28), 1 mL or less each, taken with routine lab draws (no extra needle sticks)", "A short breathing test (TremoFlo) near 36 weeks or before discharge", "Chart information, including at Children's of Alabama if transferred"], "framings": {"plain": "The study measures a few things. {{baby_name}}'s body fat is measured 5 times: around birth, and at day 7, day 14, day 28 and 36 weeks. If {{baby_name}} is stable, this is done in the Peapod, a small, warm, quiet scanner with a clear door, for about two minutes. If {{baby_name}} isn't stable enough to move, we use the BioScan at the bedside instead, with stickers like the heart monitor ones. We'd also like milk samples at day 7 and 14, but only if you have enough. There are two tiny blood samples, one at the start and one around day 28, each 1 mL or less. {{blood_draw_method}} Near 36 weeks or before going home, there's a short breathing test with a soft mask over the nose and mouth for about 20 to 30 seconds. We also collect information from the medical chart, including at Children's of Alabama if {{baby_name}} is transferred there.", "visual": "Timeline: birth → day 7 → day 14 → day 28 → 36 weeks. Body fat all five times. Milk at days 7 and 14 (if you have enough). Blood at the start and day 28. Breathing test at the end.", "detail": "The Peapod uses air displacement; the BioScan uses bioimpedance electrodes. Blood samples are for metabolism studies. The TremoFlo measures lung function during normal breathing using impulse oscillometry (iOS)."}}, {"id": "risks", "title": "Risks", "must_cover": ["Not expected to add risk beyond routine care, but this can't be guaranteed; unknown risks possible in both groups", "Supplement group: feeding intolerance, gut inflammation, stomach or bowel discomfort, infection, refeeding syndrome, serious gut complications (NEC)", "NEC explained honestly, including surgery and death; baseline about 4 in 100; no increase expected based on earlier studies", "No-supplement group: possible slower growth and higher risk of some complications of prematurity", "Feeding intolerance is common; no evidence the supplement increases it", "Chance may put the baby in the group that turns out worse", "Procedure risks: Peapod discomfort, undressing and transport (monitored); BioScan skin irritation; brief mask discomfort; blood samples come from routine draws, so no extra needle sticks", "Loss of confidentiality", "Safety board (DSMB) watches feeding tolerance, NEC, SIP and deaths"], "framings": {"plain": "The researchers don't expect the study to add risk beyond usual care, but nobody can promise that, and unknown risks could happen in either group. For babies getting the supplement, possible problems include feeding intolerance, gut inflammation, tummy discomfort, infection, refeeding syndrome (a shift in blood minerals when nutrition increases) and serious gut problems like NEC. NEC damages the intestine. Some babies need surgery, and some die from it. About 4 in 100 premature babies have gut complications like this whether or not they're in a study. Based on earlier studies, the researchers don't expect either group to have more. Babies who don't get the supplement could grow more slowly and have a higher risk of some complications of prematurity. Feeding intolerance is common in all very premature babies, and there's no evidence the supplement makes it more likely. Because chance picks the group, {{baby_name}} could end up in the one that turns out worse. The measurements have small risks too: fussiness during the Peapod scan, skin irritation from stickers, and a few seconds of discomfort from the breathing mask. The blood samples are taken during routine blood tests, so there are no extra needle sticks. There's also a small risk to the privacy of {{baby_name}}'s information. {{safety_monitoring}}.", "detail": "Baseline risk of gut complications about 4% in preterm infants (per the form). The DSMB monitors feeding tolerance, NEC, SIP and death. For the Peapod, the baby is transported to the second floor of the WIC building (staff-only access), monitored by a nurse, a respiratory therapist and a research team member, and the scan stops immediately if the baby's condition changes."}, "trainer_note": "The form lists possible harms for BOTH groups. Present both sides evenly. Don't turn the no-supplement risks into an argument for the supplement, or the supplement risks into an argument against. Confirm the plain-language definition of refeeding syndrome with the PI."}, {"id": "benefits", "title": "Possible benefits", "must_cover": ["Baby may or may not benefit", "Possible benefits (better growth, stronger lungs, less time on breathing support) are what the study is testing", "Helps future premature babies"], "framings": {"plain": "{{baby_name}} may or may not benefit. The hope is that the supplement could improve growth and lung development and mean less time on breathing support, but that's exactly what the study is testing, so nobody knows yet. What we do expect is that the results will help doctors feed future premature babies better."}, "trainer_note": "Never present the possible benefits as expected results."}, {"id": "alternatives", "title": "Alternative", "must_cover": ["The alternative is not to participate; baby gets the standard feeding care"], "framings": {"plain": "If you say no, {{baby_name}} gets the usual feeding care in our NICU, and nothing else about {{baby_name}}'s care changes."}}, {"id": "privacy", "title": "Privacy and the medical record", "must_cover": ["The signed consent form goes in the baby's medical record; the electronic record may show the baby is in a trial", "Research test results may be placed in the medical record", "Who may see identifiable information (research team, sponsor, IRB, OHRP, DHHS, FDA, foreign government agencies, reportable-disease agencies, billing offices)", "Study data are coded and kept locked or password-protected", "Can't review research records until the study ends", "Permission doesn't expire; revoking it in writing ends participation"], "framings": {"plain": "A copy of this form goes into {{baby_name}}'s medical record, and the electronic record may show that {{baby_name}} is in a study, with the study doctor's name. Some research test results may be added to the record too. People who oversee or check the study, such as the study team, the sponsor, the ethics board and government agencies like the FDA, may see records with {{baby_name}}'s name. Study information is labeled with a code number, not a name, and kept locked or on password-protected computers. {{certificate_of_confidentiality}}", "detail": "The authorization uses broad standard wording covering any diagnosis or treatment in the record, including sensitive categories (HIV, substance use, behavioral health). Parents can't see research records until the study is complete. The authorization doesn't expire; it continues until revoked in writing to the study doctor, and revoking it ends participation. Already-collected information may still be used if needed for reliability."}}, {"id": "future_use", "title": "Future research with information", "must_cover": ["After identifiers are removed, the information may be used or shared for future research without asking again"], "framings": {"plain": "After names and other identifying details are removed, {{baby_name}}'s information could be used in future studies or shared with other researchers without asking you again. If you're not comfortable with that, it's a completely reasonable reason not to join."}}, {"id": "voluntary", "title": "Your choice, and leaving the study", "must_cover": ["Voluntary; no penalty, care and relationship with the institution unaffected", "Can withdraw any time by contacting the study doctor", "Baby may be taken off the study if the sponsor ends it or it's not in the baby's best interest", "Will be told of new information", "UAB students and employees: no effect on grades or job"], "framings": {"plain": "This is entirely your choice, and {{baby_name}}'s care is the same either way. You can take {{baby_name}} out of the study at any time by telling the study doctor. We'd stop collecting new information, though what's already collected may still be used. The study doctor may also take {{baby_name}} off the study if it's no longer in {{baby_name}}'s best interest, or if the sponsor ends the study. We'll tell you about any new information that might change your mind. If you're a UAB student or employee, your decision won't affect your classes or your job."}}, {"id": "costs_injury", "title": "Costs, payment and injury", "must_cover": ["No cost for the study; usual care billed as normal", "No payment", "If harmed, treatment will be provided but not free of charge", "No legal rights waived"], "framings": {"plain": "The study costs you nothing, and {{baby_name}}'s usual hospital care is billed as it normally would be. There's no payment for taking part. If {{baby_name}} were harmed because of the study, treatment would be provided, but it wouldn't be free. NHLBI and UAB haven't set aside money for research injuries. Signing doesn't take away any of your legal rights."}}, {"id": "questions", "title": "Questions and contacts", "must_cover": ["Who to call with questions, concerns or a research injury", "UAB IRB office for questions about rights", "Parent receives a signed copy"], "framings": {"plain": "{{contacts}}. You'll get a signed copy of this form to keep."}}], "reaction_overrides": {"guinea_pig": {"variant": "in_between"}, "wants_normal_care": {"note": "The no-supplement group is the usual care. Remember the 1-in-3 odds: choosing usual care means not joining."}, "feeding_safety_fear": {"note": "Requires {{rescue_pathway}}: whether and how the team can pause or stop the supplement for feeding problems (not stated in the form)."}, "baseline_vs_study_risk": {"monitoring": "{{safety_monitoring}}"}, "consent_model_concern": {"note": "Low relevance: MEND-BPD uses standard written permission."}, "study_fatigue": {"co_enrollment_note": "{{co_enrollment_rules}}"}, "overwhelmed": {"variant": "flexible_window", "note": "Families are approached in the first days of life (the supplement starts within 72 hours), so overload is especially likely."}}, "reactions": [{"id": "mend_natural", "label": "\"It's just healthy fats. What's the harm?\"", "category": "Assumes the supplement is harmless", "cues": ["Compares it to fish oil or vitamins", "\"It's natural, so it's fine\"", "Ready to agree before hearing risks"], "move": "Gently correct: being natural doesn't mean risk-free for a baby this small. Go through the listed risks.", "script": "I can see why it sounds that way. DHA and ARA are healthy fats. But giving extra amounts to a baby born this early, this soon after birth, hasn't been fully tested, which is why we're doing the study. The form lists possible problems, like feeding intolerance and serious gut complications, and I'd like to walk you through them before you decide.", "teach_back": "What's one reason this still needs to be studied, even though these are healthy fats?", "why": "\"Natural means safe\" is a common misconception. Letting it stand undermines informed consent.", "avoid": ["\"Exactly, it's just like a vitamin\"", "Skipping the risks because the parent seems comfortable"], "flag_on_wrong": "natural_minimized"}, {"id": "mend_odds", "label": "Reads the 2-in-3 odds as a sign the supplement is better", "category": "Misreads the 2-in-3 odds", "cues": ["\"So most babies get it, it must be good\"", "\"Good, she'll probably get it\""], "move": "Correct the inference: more babies are assigned to it, but nobody knows which group does better.", "script": "More babies go into the supplement group, but that doesn't mean it's better. We honestly don't know yet which group will do better. That's the question. {{why_two_to_one}} And there's still a 1 in 3 chance {{baby_name}} won't get it, and you won't know either way.", "teach_back": "What does the 2-in-3 chance tell us about whether the supplement works?", "why": "Uneven randomization easily reads as an endorsement, which is a form of therapeutic misconception.", "avoid": ["\"Yes, the odds are in your favor\"", "Explaining the ratio as a reward for joining"], "flag_on_wrong": "odds_as_endorsement"}, {"id": "mend_blinding", "label": "Worried that nobody will know the group", "category": "Concern about blinding", "cues": ["\"What if something goes wrong and the doctors don't know what she's getting?\"", "\"Can I find out later?\""], "move": "Explain why blinding exists and what happens if there's a problem. Don't promise anything the form doesn't say.", "script": "That's a really reasonable worry. Nobody knows the group so that expectations can't affect how babies are cared for or measured. The team treats {{baby_name}} for whatever {{baby_name}} needs, exactly as usual. {{unblinding_process}} You'll be able to find out the group after the study is completed.", "teach_back": "Who will know which group {{baby_name}} is in during the study?", "why": "Blinding is often the least understood part of a trial, and it touches parents' sense of control.", "avoid": ["\"The doctors can look it up any time\" (unless confirmed)", "\"You'll probably be able to tell\""], "flag_on_wrong": "blinding_misstated"}, {"id": "mend_twins", "label": "Asks about twins", "category": "Question about twins or multiples", "cues": ["\"Would both babies get the same thing?\"", "Parent of multiples"], "move": "Say plainly that each baby is assigned separately and could be in different groups.", "script": "Each baby is assigned separately, so twins could end up in different groups, or in the same one. And because the study is blinded, you won't know which. Some parents are fine with that and some aren't. Either way is okay.", "why": "Parents of multiples often assume their babies are treated as one. Finding out later damages trust.", "avoid": ["\"They'll be kept together\"", "Leaving it out unless asked"], "flag_on_wrong": "twins_misstated"}, {"id": "mend_formula", "label": "\"Enfamil? I don't want formula.\"", "category": "Thinks the supplement means formula", "cues": ["Recognizes the Enfamil brand", "Committed to breast milk"], "move": "Clarify accurately: the supplement is added to human milk, and the baby still gets only human milk.", "script": "That's an important question. The supplement isn't formula. It's the two fats, DHA and ARA, added to the human milk. In both groups, {{baby_name}} gets only human milk, your own first and donor milk if needed, until about 33 to 34 weeks. {{lactation_support}}", "teach_back": "What kind of milk would {{baby_name}} get in either group?", "why": "A brand name can trigger a feeding-values objection that rests on a misunderstanding. Correct the fact and respect the value.", "avoid": ["Dismissing the concern about formula", "Arguing about formula vs breast milk"], "flag_on_wrong": "formula_confusion"}, {"id": "mend_nec", "label": "\"Could this give my baby NEC? Could she die?\"", "category": "Fear about the most serious risk", "cues": ["Fixates on NEC or death in the form", "Visible fear"], "move": "Answer directly with the form's numbers. Don't minimize, and describe the safety monitoring.", "script": "I'm glad you asked. NEC is serious. It damages the intestine, some babies need surgery, and some die. About 4 in 100 premature babies have gut complications like NEC whether or not they're in a study. Based on earlier studies, the researchers don't expect the supplement to raise that, but they can't rule it out, which is why it's in the form. {{safety_monitoring}}.", "teach_back": "Can you tell me in your own words how likely NEC is, and what the study adds?", "why": "The form gives a concrete baseline figure. Using it honestly is the best way to answer this fear.", "avoid": ["\"That won't happen\"", "\"It's just legal language\"", "\"There's no extra risk\""], "flag_on_wrong": "death_skipped"}, {"id": "mend_control_worse", "label": "\"If she doesn't get it, will she do worse?\"", "category": "Worried about the no-supplement group", "cues": ["Reads the no-supplement risks in the form", "Wants to guarantee the supplement"], "move": "Present both groups' possible downsides evenly. Nobody knows which is better.", "script": "The form lists possible downsides for both groups. Babies without the supplement might grow more slowly or have more complications of prematurity. Babies with it might have more feeding or gut problems. We don't know which way it goes, and that's exactly why we're doing the study. Babies in the no-supplement group get the same care they'd get if you didn't join.", "teach_back": "What do we know right now about which group does better?", "why": "If the no-supplement risks aren't framed evenly, the consent becomes a sales pitch for the supplement.", "avoid": ["\"The supplement group will probably do better\"", "\"The control group is just normal care, so it's risk-free\""], "flag_on_wrong": "arm_disparaged"}, {"id": "mend_peapod", "label": "Worried about moving the baby for the Peapod", "category": "Concern about the body fat scan", "cues": ["\"You'd take her off the unit?\"", "Baby on breathing support"], "move": "Give the concrete safeguards from the form, including the bedside alternative.", "script": "The Peapod is only used if {{baby_name}} is stable enough. A nurse, a respiratory therapist and someone from the research team stay with {{baby_name}} the whole time, including on the way there and back, and the scan stops right away if anything changes. It takes about two minutes. If {{baby_name}} isn't stable enough to move, we measure at the bedside with the BioScan instead.", "why": "Transport out of the NICU is a real concern for parents of fragile babies, and the safeguards are specific.", "avoid": ["\"It's no big deal\"", "Leaving out that the baby is undressed and may be fussy"]}, {"id": "mend_record", "label": "Worried the study will be in the medical record", "category": "Concern about the medical record", "cues": ["\"So it goes in her chart that she's in a trial?\"", "\"Who can see that?\""], "move": "Say exactly what goes in the record and who sees it. Don't overpromise.", "script": "Yes. A copy of this form goes into {{baby_name}}'s medical record, the electronic record may show that {{baby_name}} is in a study, and some research test results may be added. Anyone allowed to see {{baby_name}}'s record could see that. Study data itself is kept under a code number, locked or on password-protected computers. {{certificate_of_confidentiality}} If that isn't comfortable for you, it's a fine reason not to join.", "why": "Parents are often surprised that trial participation appears in the chart. Knowing up front prevents a breach of trust later.", "avoid": ["\"Nobody will know\"", "\"It's all anonymous\""], "flag_on_wrong": "record_misstated"}, {"id": "mend_who_funds", "label": "\"Is Enfamil paying for this?\"", "category": "Question about funding or sponsor", "cues": ["Asks about the company", "\"Who's paying for this?\""], "move": "Answer factually about the funder and the product's role. Don't use the NIH name as reassurance.", "script": "The study is funded by {{funder}}. The supplement is a commercial product, the Enfamil DHA/ARA supplement. {{manufacturer_role}} Being funded by NIH means other scientists thought the question was worth answering. It doesn't mean the supplement is better or safe for {{baby_name}}.", "why": "Visible brand names raise questions about industry influence, and families deserve a direct answer.", "avoid": ["\"NIH wouldn't fund it if it weren't safe\"", "Implying the company endorses or oversees the study"], "flag_on_wrong": "prestige_persuasion"}, {"id": "mend_injury_cost", "label": "\"Who pays if something goes wrong?\"", "category": "Concern about costs if harmed", "cues": ["Asks about injury, insurance or bills"], "move": "Answer exactly as the form states.", "script": "If {{baby_name}} were harmed because of the study, treatment would be provided, but it wouldn't be free. It would be billed like other care. NHLBI and UAB haven't set aside money for research injuries. You don't give up any legal rights by signing.", "why": "Families deserve the unwelcome answer as clearly as the welcome ones.", "avoid": ["\"The study covers everything\"", "Changing the subject"], "flag_on_wrong": "injury_cost_wrong"}, {"id": "mend_blood_mask", "label": "Worried about pain from samples or tests", "category": "Concern about pain or discomfort", "cues": ["\"More needles?\"", "\"A mask on her face?\""], "move": "Give precise, limited facts.", "script": "There are two tiny blood samples, 1 mL or less each. {{blood_draw_method}} The breathing test uses a soft, cushioned mask over the nose and mouth for about 20 to 30 seconds while {{baby_name}} breathes normally. Any discomfort stops as soon as it's removed. The body fat measurement doesn't hurt, though some babies get fussy.", "why": "Concrete, limited facts address worries about discomfort better than general reassurance.", "avoid": ["\"It's nothing\"", "Implying the routine blood tests themselves are painless"]}], "pre_conversation_checklist": [{"id": "eligibility", "item": "Baby born at or before 28 weeks with birthweight 1000 g or less, on a human-milk diet?"}, {"id": "timing", "item": "The supplement must start within 72 hours of birth, so families are approached very early. Is the parent able to take this in right now? Parents have 24 hours to decide; plan the return visit."}, {"id": "clinical_intro", "item": "Has the bedside neonatologist or nurse introduced the study team?"}, {"id": "multiples", "item": "Twins or multiples? Be ready to explain separate assignment."}, {"id": "co_enrollment", "item": "Checked the unit study register: {{co_enrollment_rules}}"}, {"id": "partner", "item": "Does the family want the other parent involved? (One parent's permission is enough.)"}, {"id": "language", "item": "Interpreter or translated consent form needed?"}, {"id": "form_version", "item": "Using the stamped, currently valid consent form ({{consent_version}})?"}], "debrief_flags": [{"id": "natural_minimized", "label": "Treated the supplement as harmless because it's 'natural' or 'just fats'", "severity": "critical"}, {"id": "arm_disparaged", "label": "Framed one group as better, or presented one group's possible harms without the other's", "severity": "critical"}, {"id": "death_skipped", "label": "Skipped or brushed off NEC or death", "severity": "critical"}, {"id": "no_risk_claim", "label": "Said \"no risk beyond routine care\" without going through the listed risks", "severity": "critical"}, {"id": "odds_as_endorsement", "label": "Presented the 2-in-3 odds as good news, or as a sign the supplement works", "severity": "major"}, {"id": "blinding_misstated", "label": "Said or implied the family or team would know the group", "severity": "major"}, {"id": "blinding_skipped", "label": "Didn't explain blinding", "severity": "major"}, {"id": "twins_misstated", "label": "Said multiples would be kept in the same group", "severity": "major"}, {"id": "formula_confusion", "label": "Didn't make clear the supplement is added to human milk and isn't formula", "severity": "major"}, {"id": "record_misstated", "label": "Understated what goes in the medical record", "severity": "major"}, {"id": "future_use_skipped", "label": "Didn't mention future use of de-identified information", "severity": "major"}, {"id": "injury_cost_wrong", "label": "Misstated who pays for research injury", "severity": "major"}, {"id": "benefits_as_expected", "label": "Presented the possible benefits as expected results", "severity": "major"}], "coverage_flags": {"risks": "no_risk_claim", "blinding": "blinding_skipped", "future_use": "future_use_skipped", "benefits": "benefits_as_expected"}, "open_questions": [{"placeholder": "certificate_of_confidentiality", "question": "Is the study covered by an NIH Certificate of Confidentiality? It's NHLBI-funded and collects identifiable information, but the form doesn't mention one. If it applies, what wording should coordinators use?"}, {"placeholder": "dose_assignment", "question": "The form mentions a low dose and a high dose for the supplement group. How is the dose decided (randomized, sequential, clinician choice)? Parents will ask."}, {"placeholder": "unblinding_process", "question": "Can the group be revealed in an emergency, and who decides? The blinding script stays hidden until this is answered."}, {"placeholder": "rescue_pathway", "question": "If a baby has feeding problems, can the team pause or stop the supplement? Does the baby stay in the study?"}, {"placeholder": "donor_milk_refusal_eligibility", "question": "Can a family that declines donor milk take part? The design requires an exclusive human-milk diet until 33-34 weeks."}, {"placeholder": "why_two_to_one", "question": "Optional: a one-sentence plain reason for 2:1 randomization, if you'd like coordinators to be able to explain it."}, {"placeholder": "lactation_support", "question": "What lactation support is available to mention at UAB?"}, {"placeholder": "co_enrollment_rules", "question": "Are there co-enrollment restrictions?"}], "form_issues": ["Sponsor is stated two ways: page 1 lists the NHLBI / NIH / DHHS as sponsor, while 'Additional Information' says the sponsor is the UAB Division of Neonatology and the trial is funded by an NHLBI grant.", "Blood sampling: the study team confirms samples are combined with routine lab draws (no extra sticks), but the Procedures section still says 'finger/heel prick or scavenged', and the summary says blood draws 'may cause temporary pain'. Consider aligning the form.", "The breathing test lasts '20-30 seconds' in Procedures but the mask is on '5 to 10 seconds' in Risks.", "The summary says babies born '22-28 weeks'; the body says 'at or before 28 weeks' and adds birthweight ≤1000 g, which the summary omits.", "The summary's marble analogy ('green and red marbles') doesn't mention the 2:1 ratio, which appears only later. Parents who read only the summary may assume 50-50.", "The two supplement doses (low/high) are mentioned, but how the dose is assigned isn't explained.", "There's no mention of a Certificate of Confidentiality, although the study is NIH-funded.", "There's no mention of emergency unblinding.", "It's not stated whether declining donor milk makes a family ineligible.", "'Babies in this study are not expected to have risks above routine care' appears under Body fat measurements, but reads as a statement about the whole study.", "'Governmental agencies in other countries' are listed as recipients of identifiable information in a single-center US study. Confirm this applies.", "Minor typos: 'Potential benefit may include from improved growth', 'Food and drug Administration', phone numbers missing hyphens ('205934-4680', '1-855860-3789').", "'iOS' (impulse oscillometry) is never defined. Parents may read it as the Apple operating system. Consider spelling it out.", "The form doesn't mention that the supplement's manufacturer supplies the product. The study team confirms the company has no role in the study. Consider stating both."]}, "personas": {"study": "MEND-BPD", "note": "Simulated parents for training. Each persona reacts to specific modules; modules not listed get a neutral 'engaged' reaction. The final decision is fixed per persona and never depends on the trainee's score.", "engaged_lines": ["Nods. \"Okay, that makes sense.\"", "\"Okay.\" Listening, glancing at the isolette.", "Listens quietly, then nods for you to continue.", "\"Got it.\""], "personas": [{"id": "grace", "name": "Grace", "role": "Mother of twins", "baby_name": "Eli", "difficulty": "Moderate", "summary": "Eli and his twin sister Ruth were born at 26 weeks yesterday. Grace wants the twins treated the same and is uneasy about not knowing what they're getting.", "reactions": {"groups": {"reaction": "mend_twins", "line": "\"Wait, would Eli and Ruth get the same thing?\"", "nonverbal": "Looks back and forth between the two isolettes."}, "blinding": {"reaction": "mend_blinding", "line": "\"So nobody will know what he's getting? What if something goes wrong?\"", "nonverbal": "Frowns, arms folded."}, "risks": {"reaction": "baseline_vs_study_risk", "line": "\"If one of them gets NEC, how would I know if it was the study?\"", "nonverbal": "Quiet, worried."}}, "decision": {"outcome": "yes", "line": "\"Okay. I understand they might be in different groups. We'll do it.\"", "parca": "no"}}, {"id": "rosa", "name": "Rosa", "role": "Mother who thinks it's harmless", "baby_name": "Lucia", "difficulty": "Subtle", "summary": "Lucia was born at 25 weeks. Rosa takes fish oil herself and assumes the supplement can only help. The challenge is making sure she hears the risks.", "reactions": {"why_asked": {"reaction": "mend_natural", "line": "\"Oh, DHA, that's just like fish oil. That's only good for her, right?\"", "nonverbal": "Smiling, relaxed."}, "groups": {"reaction": "mend_odds", "line": "\"Two out of three get it? Good, so she'll probably get it.\"", "nonverbal": "Nods happily."}, "benefits": {"reaction": "quick_yes", "line": "\"Better lungs, perfect. I'm ready to sign.\"", "nonverbal": "Reaching for the pen."}}, "decision": {"outcome": "yes", "line": "\"Thank you for being honest about the risks. I still want her in the study.\"", "parca": "no"}}, {"id": "andre", "name": "Andre", "role": "Father of a baby on a ventilator", "baby_name": "Micah", "difficulty": "Hard", "summary": "Micah was born at 24 weeks, weighs 640 g and is on a ventilator. Andre is frightened and protective and has read every line of the form.", "reactions": {"procedures": {"reaction": "mend_peapod", "line": "\"You'd take him off the unit? He's on a ventilator.\"", "nonverbal": "Voice rising."}, "risks": {"reaction": "mend_nec", "line": "\"It says babies die from NEC. Could this give him NEC?\"", "nonverbal": "Hands shaking slightly."}, "benefits": {"reaction": "mend_control_worse", "line": "\"And if he doesn't get it, the form says he could do worse. So either way he's at risk?\"", "nonverbal": "Rubs his face."}}, "decision": {"outcome": "time", "line": "\"I need to talk to his mom. We'll tell you tomorrow.\"", "parca": "no"}}, {"id": "jen", "name": "Jen", "role": "Mother committed to breast milk", "baby_name": "Harper", "difficulty": "Moderate", "summary": "Harper was born at 27 weeks. Jen is pumping well and is wary of anything with a formula brand name. She will decline, and that's a legitimate outcome.", "reactions": {"feeds": {"reaction": "mend_formula", "line": "\"Enfamil? That's formula. I only want her to have my milk.\"", "nonverbal": "Pulls the form closer, reading."}, "blinding": {"reaction": "mend_blinding", "line": "\"So I wouldn't even know what's in her milk?\"", "nonverbal": "Unhappy."}}, "decision": {"outcome": "no", "line": "\"I get that it's not formula. But I don't want anything added that I don't know about. No, thank you.\"", "parca": "no"}}, {"id": "daniel", "name": "Daniel", "role": "Privacy-minded father", "baby_name": "Nora", "difficulty": "Moderate", "summary": "Nora was born at 27 weeks. Daniel works in IT, reads the privacy section closely and wants to know who's behind the study.", "reactions": {"feeds": {"reaction": "mend_who_funds", "line": "\"Enfamil's a company. Are they paying for this?\"", "nonverbal": "Raises an eyebrow."}, "privacy": {"reaction": "mend_record", "line": "\"So her chart will say she's in a trial? Who can see that?\"", "nonverbal": "Taps the page."}, "costs_injury": {"reaction": "mend_injury_cost", "line": "\"If something goes wrong, we get the bill?\"", "nonverbal": "Leans forward."}}, "decision": {"outcome": "yes", "line": "\"Okay, those were straight answers. We're in.\"", "parca": "no"}}, {"id": "keisha", "name": "Keisha", "role": "Exhausted mother, day 1", "baby_name": "Jordan", "difficulty": "Hard", "summary": "Jordan was born at 23 weeks less than a day ago. Keisha had an emergency C-section, is in pain and exhausted, and her partner is at work.", "opening": {"reaction": "overwhelmed", "line": "\"I'm sorry... I can barely keep my eyes open. What is this about?\"", "nonverbal": "Wincing as she shifts in the wheelchair."}, "reactions": {"procedures": {"reaction": "mend_blood_mask", "line": "\"More blood? He's so tiny.\"", "nonverbal": "Tearful."}, "voluntary": {"reaction": "partner_absent", "line": "\"I want his dad to hear this too.\"", "nonverbal": "Looks at her phone."}}, "decision": {"outcome": "time", "line": "\"Can you come back when his dad is here tonight?\"", "parca": "no"}}]}}]};</script>
+<script>/* Consent Conversation Trainer. Content comes from window.CONTENT (inlined at build time). */
+(function () {
+  "use strict";
+
+  const C = window.CONTENT;
+  const STORE_KEY = "consentTrainer.sessions.v1";
+  const ENGAGED = "__engaged";
+
+  const app = document.getElementById("app");
+  let state = { view: "home", studyIdx: 0, mode: "practice", personaId: null, trainee: "", babyName: "", session: null, modal: null, framing: {}, guidedReaction: null, historyView: null };
+
+  /* ---------- utilities ---------- */
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  function loadSessions() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } }
+  function saveSessions(list) { try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); } catch { /* storage unavailable: session still works in memory */ } }
+  function persist(s) { const list = loadSessions().filter((x) => x.id !== s.id); list.unshift(s); saveSessions(list.slice(0, 200)); }
+
+  /* ---------- content model ---------- */
+  const study = () => C.studies[state.studyIdx];
+  const pack = () => study().pack;
+  const personas = () => study().personas;
+  const persona = () => personas().personas.find((p) => p.id === (state.session ? state.session.personaId : state.personaId));
+  const modules = () => pack().modules;
+
+  function reactionCatalog() {
+    if (study()._catalog) return study()._catalog;
+    const p = pack(), cat = {};
+    for (const r of p.reactions) cat[r.id] = { ...r, local: {}, source: "study" };
+    for (const g of C.generic.reactions) {
+      const ov = { ...(p.reaction_overrides[g.id] || {}) };
+      const note = ov.note; delete ov.note;
+      let move = g.move, script = g.script;
+      if (g.variants) {
+        const key = ov.variant || (g.variants[p.profile.trial_type] ? p.profile.trial_type : Object.keys(g.variants)[0]);
+        move = g.variants[key].move || move; script = g.variants[key].script;
+      }
+      delete ov.variant;
+      cat[g.id] = { ...g, move, script, local: ov, note, source: "generic" };
+    }
+    study()._catalog = cat;
+    return cat;
+  }
+  const allFlags = () => [...pack().debrief_flags, ...C.generic.debrief_flags];
+  const flagById = (id) => allFlags().find((f) => f.id === id);
+
+  // Substitute facts; returns text still containing any unanswered {{placeholders}}.
+  function fill(text, local) {
+    const facts = { ...pack().facts, ...(local || {}) };
+    for (let i = 0; i < 3; i++) text = text.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in facts ? facts[k] : m));
+    const baby = (state.session && state.session.babyName) || "your baby";
+    return text.replace(/\{\{baby_name\}\}/g, baby).replace(/\{\{return_time\}\}/g, "[the time you'll come back]");
+  }
+  // Scripts must never show an unanswered placeholder: drop those sentences and say so.
+  function speakable(text, local) {
+    const filled = fill(text, local);
+    const sentences = filled.match(/[^.!?]+[.!?]+["”']?\s*|[^.!?]+$/g) || [filled];
+    const kept = sentences.filter((s) => !/\{\{\w+\}\}/.test(s));
+    const withheld = kept.length < sentences.length;
+    let html = esc(kept.join("").trim()).replace(/\[the time you&#39;ll come back\]/g, "<mark>[the time you'll come back]</mark>");
+    if (withheld) html += ` <span class="withheld">(one part withheld: waiting on the study team)</span>`;
+    return html;
+  }
+  function avoidAsChoice(a) {
+    const q = a.match(/^"[^"]*"/);
+    return q ? `Say: ${q[0].replace(/^"|"$/g, "“").replace(/“$/, "”")}` : a.replace(/\s*\([^)]*\)\s*$/, "");
+  }
+
+  /* ---------- session ---------- */
+  function newSession(mode) {
+    const p = mode === "practice" ? persona() : null;
+    return {
+      id: uid(), study: pack().meta.short_name, packVersion: pack().meta.version, mode,
+      personaId: p ? p.id : null, personaName: p ? `${p.name} (${p.role})` : null,
+      trainee: state.trainee.trim(), babyName: p ? p.baby_name : state.babyName.trim(),
+      startedAt: Date.now(), endedAt: null, current: 0, visited: [0],
+      coverage: Object.fromEntries(modules().map((m) => [m.id, m.must_cover.map(() => false)])),
+      framingsUsed: {}, checklist: {}, events: [], teachBacks: 0,
+      idCorrect: 0, idTotal: 0, respCorrect: 0, respTotal: 0,
+      autoFlags: [], manualFlags: null, outcome: null, parca: null, notes: "",
+      step: null, turn: null
+    };
+  }
+  function log(type, detail) {
+    const s = state.session;
+    s.events.push({ t: Date.now() - s.startedAt, type, module: modules()[s.current]?.id || null, ...detail });
+  }
+  function addFlag(id, reason) {
+    const s = state.session;
+    if (!id || !flagById(id) || s.autoFlags.some((f) => f.id === id)) return;
+    s.autoFlags.push({ id, reason });
+  }
+  const moduleStatus = (m) => { const c = state.session.coverage[m.id]; const n = c.filter(Boolean).length; return n === 0 ? "" : n === c.length ? "done" : "partial"; };
+  const missingCoverage = () => modules().flatMap((m) => state.session.coverage[m.id].map((v, i) => (v ? null : { module: m, item: m.must_cover[i] })).filter(Boolean));
+
+  /* ---------- practice flow ---------- */
+  function parentTurn(entry, context) {
+    const s = state.session;
+    const reactionId = entry ? entry.reaction : ENGAGED;
+    const line = entry ? entry.line : pick(personas().engaged_lines);
+    const cat = reactionCatalog();
+    const others = shuffle(Object.keys(cat).filter((k) => k !== reactionId)).slice(0, reactionId === ENGAGED ? 3 : 2);
+    const idOptions = shuffle([reactionId, ...others, ...(reactionId === ENGAGED ? [] : [ENGAGED])]);
+    s.turn = { reactionId, line, nonverbal: entry ? entry.nonverbal : "", context, idOptions, idChoice: null, respOptions: null, respChoice: null };
+    s.step = "identify";
+    log("parent", { reaction: reactionId, line });
+  }
+  function buildResponseOptions(reactionId) {
+    const cat = reactionCatalog(), r = cat[reactionId];
+    const other = cat[pick(Object.keys(cat).filter((k) => k !== reactionId))];
+    return shuffle([
+      { kind: "correct", text: r.move },
+      { kind: "avoid", text: avoidAsChoice(pick(r.avoid)) },
+      { kind: "mismatch", text: other.move, otherLabel: other.label }
+    ]);
+  }
+  function advance() {
+    const s = state.session;
+    s.turn = null;
+    if (s.current < modules().length - 1) {
+      s.current++; if (!s.visited.includes(s.current)) s.visited.push(s.current);
+      s.step = "present";
+    } else {
+      s.reachedEnd = true; s.step = "gate";
+      const missing = missingCoverage();
+      if (missing.length) state.modal = { kind: "gate", missing };
+      else startDecision();
+    }
+  }
+  function startDecision() {
+    const s = state.session, d = persona().decision;
+    state.modal = null;
+    log("decision", { outcome: d.outcome, line: d.line });
+    if (d.outcome === "no") {
+      s.turn = { reactionId: "declines", line: d.line, nonverbal: "", context: "decision", idChoice: "declines", respOptions: buildResponseOptions("declines"), respChoice: null };
+      s.step = "respond";
+    } else {
+      s.step = "decision";
+    }
+  }
+  function endSession(outcome) {
+    const s = state.session;
+    s.outcome = outcome; s.endedAt = Date.now(); s.step = "done";
+    for (const [mod, flag] of Object.entries(pack().coverage_flags || {})) {
+      if (s.coverage[mod] && s.coverage[mod].some((v) => !v) && s.outcome !== "ineligible") addFlag(flag, "Required points in this module were not marked as covered");
+    }
+    if (s.teachBacks === 0 && s.mode === "practice" && s.outcome !== "ineligible") addFlag("no_teach_back", "No teach-back questions were asked");
+    if (s.manualFlags === null) s.manualFlags = s.autoFlags.map((f) => f.id);
+    log("end", { outcome });
+    persist(s);
+    state.view = "debrief";
+  }
+
+  /* ---------- rendering ---------- */
+  function render() {
+    const views = { home: renderHome, brief: renderBrief, session: renderSession, debrief: renderDebrief, history: renderHistoryItem };
+    app.innerHTML = views[state.view]() + (state.modal ? renderModal() : "");
+    const focus = app.querySelector("[data-autofocus]"); if (focus) focus.focus();
+  }
+
+  function renderHome() {
+    const ps = personas().personas;
+    // Several app files may share this browser's storage: only list sessions for studies in this file.
+    const known = C.studies.map((st) => st.pack.meta.short_name);
+    const sessions = loadSessions().filter((s) => known.includes(s.study));
+    const studyCards = C.studies.map((st, i) => `
+      <button class="card pick ${i === state.studyIdx ? "selected" : ""}" data-action="study" data-i="${i}">
+        <b>${esc(st.pack.meta.short_name)}</b> <span class="pill">${esc(st.pack.profile.trial_type.replace("_", "-"))}</span> <span class="pill">${esc(st.pack.profile.funding.replace("_", " "))}</span>
+        <div class="small muted">${esc(st.pack.profile.population)}</div>
+        <div class="small muted">Content v${esc(st.pack.meta.version)}</div>
+      </button>`).join("");
+    const personaCards = ps.map((p) => `
+      <button class="card pick ${p.id === state.personaId ? "selected" : ""}" data-action="persona" data-id="${p.id}">
+        <div class="row"><div class="avatar">${esc(p.name[0])}</div><div><b>${esc(p.name)}</b><div class="small muted">${esc(p.role)}</div></div><span class="spacer"></span><span class="pill ${p.difficulty.toLowerCase()}">${esc(p.difficulty)}</span></div>
+        <p class="small" style="margin-top:8px">${esc(p.summary)}</p>
+      </button>`).join("");
+    const canStart = state.mode === "guided" || state.personaId;
+    return `
+      <div class="stack">
+        <div><h1>Practice the consent conversation</h1>
+        <p class="muted">Recognize how a parent is reacting, choose how to respond, and get feedback. The aim is understanding and a free decision, not enrollment.</p></div>
+        <section class="stack"><h2>1. Study</h2><div class="grid cols-2">${studyCards}</div></section>
+        <section class="stack"><h2>2. Mode</h2>
+          <div class="grid cols-2">
+            <button class="card pick ${state.mode === "practice" ? "selected" : ""}" data-action="mode" data-mode="practice"><b>Practice with a simulated parent</b><div class="small muted">Work through the consent form while a scripted parent reacts. Identify each reaction, choose a response, get feedback.</div></button>
+            <button class="card pick ${state.mode === "guided" ? "selected" : ""}" data-action="mode" data-mode="guided"><b>Guided role-play</b><div class="small muted">A supervisor or colleague plays the parent. Log their reactions and the app shows the recommended move and script.</div></button>
+          </div>
+        </section>
+        ${state.mode === "practice" ? `<section class="stack"><h2>3. Parent</h2><div class="grid cols-3">${personaCards}</div></section>`
+          : `<section class="stack"><h2>3. Scenario</h2><div class="card grid cols-2"><label class="field">Baby's name used in the role-play<input data-bind="babyName" value="${esc(state.babyName)}" placeholder="e.g. Mia"></label></div></section>`}
+        <section class="card row">
+          <label class="field" style="flex:1;min-width:200px">Trainee name (optional, stays on this device)<input data-bind="trainee" value="${esc(state.trainee)}"></label>
+          <button class="btn primary" data-action="brief" ${canStart ? "" : "disabled"}>Continue</button>
+        </section>
+        ${sessions.length ? `<section class="stack"><h2>Past sessions on this device</h2><div class="card"><table>
+          <tr><th>Date</th><th>Study</th><th>Mode</th><th>Parent</th><th>Outcome</th><th>Score</th><th></th></tr>
+          ${sessions.map((s) => `<tr><td>${new Date(s.startedAt).toLocaleString()}</td><td>${esc(s.study)}</td><td>${esc(s.mode)}</td><td>${esc(s.personaName || s.babyName || "Role-play")}</td><td>${esc(s.outcome || "—")}</td><td>${s.mode === "practice" ? `${s.respCorrect}/${s.respTotal}` : "—"}</td>
+          <td class="row"><button class="btn ghost" data-action="open-history" data-id="${s.id}">Open</button><button class="btn ghost danger" data-action="delete-history" data-id="${s.id}">Delete</button></td></tr>`).join("")}
+        </table></div></section>` : ""}
+      </div>`;
+  }
+
+  function renderBrief() {
+    const p = state.mode === "practice" ? persona() : null;
+    const items = pack().pre_conversation_checklist;
+    return `
+      <div class="stack" style="max-width:720px">
+        <button class="btn ghost" data-action="home">← Back</button>
+        ${p ? `<div class="card parent"><div class="avatar">${esc(p.name[0])}</div><div><h2>${esc(p.name)}, ${esc(p.role.toLowerCase())}</h2><p>${esc(p.summary)}</p><p class="small muted">Baby: ${esc(p.baby_name)} · Difficulty: ${esc(p.difficulty)}</p></div></div>` : ""}
+        <div class="card stack">
+          <h2>Before the conversation</h2>
+          <p class="small muted">Confirm each item for this scenario. Unchecked items are recorded in the debrief.</p>
+          <div class="checks">${items.map((c) => `<label><input type="checkbox" data-check="${c.id}"> <span>${esc(fill(c.item))}</span></label>`).join("")}</div>
+        </div>
+        <div class="row"><span class="spacer"></span><button class="btn primary" data-action="start" data-autofocus>Start conversation</button></div>
+      </div>`;
+  }
+
+  function renderModuleList() {
+    const s = state.session;
+    return `<nav class="card sidebar"><h3>Consent form</h3><ol class="modlist">${modules().map((m, i) => {
+      const can = s.mode === "guided" || (s.visited.includes(i) && s.step === "present" && i !== s.current);
+      return `<li><button data-action="goto" data-i="${i}" class="${i === s.current ? "current" : ""}" ${can ? "" : "disabled"}><span class="dot ${moduleStatus(m)}"></span>${esc(m.title)}</button></li>`;
+    }).join("")}</ol>
+    <p class="small muted" style="margin-top:10px">${modules().filter((m) => moduleStatus(m) === "done").length}/${modules().length} fully covered · ${s.teachBacks} teach-back${s.teachBacks === 1 ? "" : "s"}</p></nav>`;
+  }
+
+  function renderModulePanel(interactive) {
+    const s = state.session, m = modules()[s.current];
+    const keys = Object.keys(m.framings);
+    const active = state.framing[m.id] && m.framings[state.framing[m.id]] ? state.framing[m.id] : keys[0];
+    return `<section class="card stack">
+      <div class="row"><h2>${s.current + 1}. ${esc(m.title)}</h2></div>
+      <div class="tabs" role="tablist">${keys.map((k) => `<button class="tab ${k === active ? "active" : ""}" role="tab" data-action="framing" data-k="${k}">${esc(cap(k))}</button>`).join("")}</div>
+      <blockquote>${speakable(m.framings[active])}</blockquote>
+      ${m.trainer_note ? `<div class="feedback warn small"><b>Trainer note:</b> ${esc(m.trainer_note)}</div>` : ""}
+      <div><h3>Points to cover</h3><div class="checks">${m.must_cover.map((c, i) => `<label><input type="checkbox" data-cover="${i}" ${s.coverage[m.id][i] ? "checked" : ""} ${interactive ? "" : "disabled"}> <span>${esc(c)}</span></label>`).join("")}</div></div>
+    </section>`;
+  }
+
+  function renderParent(turn) {
+    const p = persona();
+    return `<div class="parent"><div class="avatar">${esc(p.name[0])}</div><div class="stack" style="margin:0"><div class="bubble">${esc(turn.line)}</div>${turn.nonverbal ? `<div class="nonverbal">${esc(turn.nonverbal)}</div>` : ""}</div></div>`;
+  }
+
+  function reactionLabel(id) { return id === ENGAGED ? "Engaged, no concern: continue" : reactionCatalog()[id].label; }
+  // Neutral name for multiple choice, so the option doesn't echo the parent's words.
+  function reactionCategory(id) { return id === ENGAGED ? reactionLabel(id) : reactionCatalog()[id].category || reactionLabel(id); }
+
+  function renderPracticeStep() {
+    const s = state.session, t = s.turn, cat = reactionCatalog();
+    if (s.step === "present") {
+      return `<div class="card row"><span class="muted small">${s.revisit ? "Going back to cover missed points. The parent won't react again." : "Choose a framing, cover the points, then present it."}</span><span class="spacer"></span><button class="btn primary" data-action="present" data-autofocus>Present to ${esc(persona().name)} →</button></div>`;
+    }
+    if (s.step === "identify") {
+      const answered = t.idChoice !== null, right = t.idChoice === t.reactionId;
+      return `<div class="card stack">
+        ${t.context === "opening" ? `<p class="small muted">As you sit down with ${esc(persona().name)}…</p>` : ""}
+        ${renderParent(t)}
+        <h3>What is ${esc(persona().name)} showing you?</h3>
+        <div class="choices">${t.idOptions.map((id) => {
+          const cls = answered ? (id === t.reactionId ? "correct" : id === t.idChoice ? "wrong" : "") : "";
+          return `<button class="choice ${cls}" data-action="identify" data-id="${id}" ${answered ? "disabled" : ""}>${esc(reactionCategory(id))}</button>`;
+        }).join("")}</div>
+        ${answered ? `<div class="feedback ${right ? "good" : "bad"}">${right ? "<b>Right.</b>" : `<b>Not quite.</b> This was: <b>${esc(reactionCategory(t.reactionId))}</b>.`}
+          ${t.reactionId !== ENGAGED ? `<div class="small">Typical cues: ${esc(cat[t.reactionId].cues.join(" · "))}</div>` : ""}</div>
+          <div class="row"><span class="spacer"></span><button class="btn primary" data-action="after-identify" data-autofocus>${t.reactionId === ENGAGED ? "Continue →" : "Choose your response →"}</button></div>` : ""}
+      </div>`;
+    }
+    if (s.step === "respond" || s.step === "teachback") {
+      const r = cat[t.reactionId], answered = t.respChoice !== null, opt = answered ? t.respOptions[t.respChoice] : null;
+      let fb = "";
+      if (answered) {
+        const intro = opt.kind === "correct" ? `<b>Good move.</b> ${esc(r.why)}`
+          : opt.kind === "avoid" ? `<b>This is on the avoid list for this reaction.</b> ${esc(r.why)}`
+          : `<b>That move fits a different concern</b> (${esc(opt.otherLabel)}), not this one.`;
+        fb = `<div class="feedback ${opt.kind === "correct" ? "good" : "bad"} stack">
+          <div>${intro}</div>
+          ${r.note ? `<div class="small"><b>Study note:</b> ${esc(fill(r.note, r.local))}</div>` : ""}
+          <div><h3>What to say</h3><blockquote>${speakable(r.script, r.local)}</blockquote></div>
+          <div class="small"><b>Avoid:</b><ul class="avoid">${r.avoid.map((a) => `<li>${esc(a)}</li>`).join("")}</ul></div>
+        </div>`;
+      }
+      const tb = s.step === "teachback" ? `<div class="card stack" style="background:var(--accent-soft)"><h3>Check understanding</h3><blockquote>${speakable(r.teach_back, r.local)}</blockquote>
+        <div class="row"><button class="btn primary" data-action="teachback" data-done="1" data-autofocus>I asked the teach-back</button><button class="btn" data-action="teachback" data-done="0">Skip</button></div></div>` : "";
+      return `<div class="card stack">
+        ${renderParent(t)}
+        <h3>How do you respond?</h3>
+        <div class="choices">${t.respOptions.map((o, i) => {
+          const cls = answered ? (o.kind === "correct" ? "correct" : i === t.respChoice ? "wrong" : "") : "";
+          return `<button class="choice ${cls}" data-action="respond" data-i="${i}" ${answered ? "disabled" : ""}>${esc(o.text)}</button>`;
+        }).join("")}</div>
+        ${fb}
+        ${answered && s.step === "respond" ? `<div class="row"><span class="spacer"></span><button class="btn primary" data-action="after-respond" data-autofocus>Continue →</button></div>` : ""}
+      </div>${tb}`;
+    }
+    if (s.step === "decision") {
+      const d = persona().decision;
+      if (d.outcome === "yes") {
+        const opt = pack().meta.optional_component;
+        return `<div class="card stack"><h3>${esc(persona().name)} decides.</h3>${renderParent({ line: d.line, nonverbal: "" })}
+          <div class="feedback info small">In a real conversation: give the family time to read the form and answer remaining questions${opt ? `, and ${esc(opt.advice)}` : ""}. Make sure they get a signed copy.</div>
+          ${opt ? `<p class="small">${esc(persona().name)} chooses <b>${d.parca === "yes" ? "yes" : "no"}</b> to ${esc(opt.name)}.</p>` : ""}
+          <div class="row"><span class="spacer"></span><button class="btn primary" data-action="end" data-outcome="consented" data-autofocus>Finish and see debrief</button></div></div>`;
+      }
+      return `<div class="card stack"><h3>${esc(persona().name)} decides.</h3>${renderParent({ line: d.line, nonverbal: "" })}
+        <div class="feedback info small">Right next step: confirm when you'll come back (before the decision deadline), leave a copy of the form, and make it clear that saying no is fine.</div>
+        <div class="row"><span class="spacer"></span><button class="btn primary" data-action="end" data-outcome="needs time" data-autofocus>Finish and see debrief</button></div></div>`;
+    }
+    return "";
+  }
+
+  function renderGuidedPanel() {
+    const cat = reactionCatalog(), s = state.session, sel = state.guidedReaction ? cat[state.guidedReaction] : null;
+    const groups = [["Study-specific", Object.values(cat).filter((r) => r.source === "study")], ["General", Object.values(cat).filter((r) => r.source === "generic")]];
+    return `<aside class="card stack reaction-col sidebar">
+      <h3>Parent reaction</h3>
+      ${groups.map(([name, rs]) => `<div><div class="small muted" style="margin-bottom:4px">${name}</div><div class="reactions">${rs.map((r) => `<button class="choice ${state.guidedReaction === r.id ? "active" : ""}" data-action="guided-reaction" data-id="${r.id}">${esc(r.label)}</button>`).join("")}</div></div>`).join("")}
+    </aside>`;
+    // (selected reaction card renders in the center column; see renderSession)
+  }
+
+  function renderGuidedCard() {
+    const r = state.guidedReaction && reactionCatalog()[state.guidedReaction];
+    if (!r) return `<div class="card small muted">When the parent reacts, tap the reaction on the right. The recommended move and script appear here.</div>`;
+    return `<div class="card stack">
+      <div class="row"><h3>${esc(r.label)}</h3><span class="spacer"></span><button class="btn ghost" data-action="guided-clear">Close</button></div>
+      <p><b>Move:</b> ${esc(r.move)}</p>
+      ${r.note ? `<p class="small"><b>Study note:</b> ${esc(fill(r.note, r.local))}</p>` : ""}
+      <blockquote>${speakable(r.script, r.local)}</blockquote>
+      ${r.teach_back ? `<div class="row"><span><b>Teach-back:</b> <i>${speakable(r.teach_back, r.local)}</i></span><button class="btn" data-action="guided-teachback">Asked ✓</button></div>` : ""}
+      <p class="small"><b>Why:</b> ${esc(r.why)}</p>
+      <div class="small"><b>Avoid:</b><ul class="avoid">${r.avoid.map((a) => `<li>${esc(a)}</li>`).join("")}</ul></div>
+    </div>`;
+  }
+
+  function renderSession() {
+    const s = state.session;
+    const header = `<div class="row" style="margin-bottom:12px"><div><b>${esc(pack().meta.short_name)}</b> · ${s.mode === "practice" ? `Practice with ${esc(persona().name)}` : "Guided role-play"}${s.babyName ? ` · Baby: ${esc(s.babyName)}` : ""}</div><span class="spacer"></span>
+      ${s.mode === "guided" ? `<button class="btn primary" data-action="guided-end">End conversation</button>` : `<button class="btn ghost" data-action="abandon">Stop session</button>`}</div>`;
+    if (s.mode === "guided") {
+      return header + `<div class="session guided">${renderModuleList()}<div class="stack">${renderGuidedCard()}${renderModulePanel(true)}</div>${renderGuidedPanel()}</div>`;
+    }
+    const interactive = s.step === "present";
+    return header + `<div class="session">${renderModuleList()}<div class="stack">${s.step === "decision" || s.step === "respond" && s.turn?.context === "decision" ? "" : renderModulePanel(interactive)}${renderPracticeStep()}</div></div>`;
+  }
+
+  function scoreBlock(s) {
+    const covered = Object.values(s.coverage).flat(), pct = Math.round((100 * covered.filter(Boolean).length) / covered.length);
+    const stats = [["Points covered", `${pct}%`], ["Teach-backs", s.teachBacks], ["Outcome", s.outcome || "—"]];
+    if (s.mode === "practice") stats.splice(1, 0, ["Reactions recognized", `${s.idCorrect}/${s.idTotal}`], ["Responses chosen well", `${s.respCorrect}/${s.respTotal}`]);
+    return `<div class="stats">${stats.map(([k, v]) => `<div class="stat"><b>${esc(v)}</b><span class="small muted">${esc(k)}</span></div>`).join("")}</div>`;
+  }
+
+  function renderDebriefBody(s, editable) {
+    const missing = modules().flatMap((m) => (s.coverage[m.id] || []).map((v, i) => (v ? null : [m.title, m.must_cover[i]])).filter(Boolean));
+    const sev = { critical: 0, major: 1, minor: 2 };
+    const flags = allFlags().filter((f, i, a) => a.findIndex((x) => x.id === f.id) === i).sort((a, b) => sev[a.severity] - sev[b.severity]);
+    const auto = Object.fromEntries(s.autoFlags.map((f) => [f.id, f.reason]));
+    const unchecked = pack().pre_conversation_checklist.filter((c) => !s.checklist[c.id]);
+    const fmt = (ms) => `${String(Math.floor(ms / 60000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
+    const evText = (e) => ({
+      parent: () => `Parent: “${e.line}”`, identify: () => `Identified as “${reactionLabel(e.choice)}” ${e.correct ? "✓" : `✕ (was “${reactionLabel(e.reaction)}”)`}`,
+      respond: () => `Responded: “${e.text}” ${e.correct ? "✓" : "✕"}`, present: () => `Presented “${e.title}” (${e.framing} framing)`,
+      teachback: () => (e.done ? "Asked teach-back" : "Skipped teach-back"), guided: () => `Reaction logged: ${reactionLabel(e.reaction)}`,
+      decision: () => `Parent decision: ${e.outcome}${e.line ? ` “${e.line}”` : ""}`, pause: () => "Paused; returned later",
+      start: () => "Conversation started", end: () => `Session ended: ${e.outcome}`
+    }[e.type] || (() => e.type))();
+    return `
+      ${scoreBlock(s)}
+      <section class="card stack"><h2>Flags</h2>
+        <p class="small muted">${editable ? "Automatic flags are pre-checked. A supervisor can add or remove flags based on what they observed." : ""}</p>
+        <table>${flags.map((f) => `<tr><td style="width:24px"><input type="checkbox" data-flag="${f.id}" ${s.manualFlags.includes(f.id) ? "checked" : ""} ${editable ? "" : "disabled"}></td>
+          <td class="sev ${f.severity}" style="width:70px">${f.severity}</td><td>${esc(f.label)}${auto[f.id] ? `<div class="small muted">Auto: ${esc(auto[f.id])}</div>` : ""}</td></tr>`).join("")}</table>
+      </section>
+      ${missing.length ? `<section class="card stack"><h2>Points not marked as covered</h2><table>${missing.map(([t, i]) => `<tr><td>${esc(t)}</td><td>${esc(i)}</td></tr>`).join("")}</table></section>` : ""}
+      ${unchecked.length ? `<section class="card stack"><h2>Checklist items not confirmed</h2><ul>${unchecked.map((c) => `<li>${esc(fill(c.item))}</li>`).join("")}</ul></section>` : ""}
+      <section class="card stack"><h2>Notes</h2><textarea data-bind-session="notes" rows="4" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface)" ${editable ? "" : "disabled"}>${esc(s.notes)}</textarea></section>
+      <section class="card stack"><h2>Timeline</h2><table class="timeline">${s.events.map((e) => `<tr><td>${fmt(e.t)}</td><td>${esc(evText(e))}</td></tr>`).join("")}</table></section>
+      <div class="row"><button class="btn" data-action="export-json">Export JSON</button><button class="btn" data-action="export-csv">Export CSV</button><span class="spacer"></span><button class="btn primary" data-action="home">Back to start</button></div>`;
+  }
+
+  function renderDebrief() {
+    const s = state.session;
+    return `<div class="stack" style="max-width:860px"><h1>Debrief</h1>
+      <p class="muted">${esc(pack().meta.short_name)} · ${s.mode === "practice" ? esc(s.personaName) : "Guided role-play"} · ${new Date(s.startedAt).toLocaleString()}${s.trainee ? ` · ${esc(s.trainee)}` : ""}</p>
+      ${s.mode === "practice" ? `<div class="feedback info small">${esc(persona().name)}'s decision was fixed before the session started. The score measures how well the conversation supported understanding, not whether the family enrolled.</div>` : ""}
+      ${renderDebriefBody(s, true)}</div>`;
+  }
+  function renderHistoryItem() {
+    const s = state.historyView;
+    return `<div class="stack" style="max-width:860px"><button class="btn ghost" data-action="home">← Back</button><h1>Past session</h1>
+      <p class="muted">${esc(s.study)} · ${esc(s.personaName || "Guided role-play")} · ${new Date(s.startedAt).toLocaleString()}${s.trainee ? ` · ${esc(s.trainee)}` : ""}</p>${renderDebriefBody(s, false)}</div>`;
+  }
+
+  function renderModal() {
+    const m = state.modal;
+    if (m.kind === "gate") {
+      const byModule = {};
+      m.missing.forEach(({ module, item }) => { (byModule[module.id] = byModule[module.id] || { module, items: [] }).items.push(item); });
+      return `<div class="modal-bg"><div class="card modal stack" role="dialog" aria-modal="true"><h2>Not everything has been covered</h2>
+        <p class="small">A parent shouldn't be asked to decide until every required point has been explained. Go back, or continue and have it recorded.</p>
+        ${Object.values(byModule).map(({ module, items }) => `<div><div class="row"><b>${esc(module.title)}</b><span class="spacer"></span><button class="btn" data-action="goto" data-i="${modules().indexOf(module)}">Go back</button></div><ul class="small">${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul></div>`).join("")}
+        <div class="row"><span class="spacer"></span><button class="btn danger" data-action="gate-continue">Continue anyway</button></div></div></div>`;
+    }
+    if (m.kind === "guided-end") {
+      return `<div class="modal-bg"><div class="card modal stack" role="dialog" aria-modal="true"><h2>How did the conversation end?</h2>
+        <div class="grid cols-2">${["consented", "declined", "needs time", "ineligible", "paused"].map((o) => `<button class="btn" data-action="end" data-outcome="${o}">${cap(o)}</button>`).join("")}</div>
+        <div class="row"><span class="spacer"></span><button class="btn ghost" data-action="close-modal">Cancel</button></div></div></div>`;
+    }
+    if (m.kind === "abandon") {
+      return `<div class="modal-bg"><div class="card modal stack" role="dialog" aria-modal="true"><h2>Stop this session?</h2><p class="small">It will be saved as “stopped” with what you've done so far.</p>
+        <div class="row"><span class="spacer"></span><button class="btn ghost" data-action="close-modal">Keep going</button><button class="btn danger" data-action="end" data-outcome="stopped">Stop</button></div></div></div>`;
+    }
+    return "";
+  }
+
+  /* ---------- export ---------- */
+  function download(name, text, type) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  }
+  function exportName(s, ext) { return `${s.study}-${s.mode}-${new Date(s.startedAt).toISOString().slice(0, 16).replace(/[:T]/g, "")}.${ext}`; }
+  function toCSV(s) {
+    const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const rows = [["session_id", "study", "pack_version", "mode", "persona", "trainee", "elapsed_s", "event", "module", "reaction", "choice", "correct", "text"]];
+    s.events.forEach((e) => rows.push([s.id, s.study, s.packVersion, s.mode, s.personaName || "", s.trainee, Math.round(e.t / 1000), e.type, e.module, e.reaction || "", e.choice || e.framing || "", e.correct ?? "", e.text || e.line || e.title || ""]));
+    return rows.map((r) => r.map(q).join(",")).join("\n");
+  }
+
+  /* ---------- events ---------- */
+  app.addEventListener("click", (ev) => {
+    const el = ev.target.closest("[data-action]"); if (!el || el.disabled) return;
+    const s = state.session, a = el.dataset.action;
+    switch (a) {
+      case "study": state.studyIdx = +el.dataset.i; state.personaId = null; break;
+      case "mode": state.mode = el.dataset.mode; break;
+      case "persona": state.personaId = el.dataset.id; break;
+      case "brief": state.session = newSession(state.mode); state.view = "brief"; break;
+      case "start": {
+        state.view = "session";
+        s.startedAt = Date.now();
+        log("start", {});
+        const p = persona();
+        if (s.mode === "practice" && p.opening) parentTurn(p.opening, "opening");
+        else s.step = "present";
+        break;
+      }
+      case "framing": state.framing[modules()[s.current].id] = el.dataset.k; break;
+      case "goto": {
+        s.current = +el.dataset.i; if (!s.visited.includes(s.current)) s.visited.push(s.current);
+        if (s.mode === "practice") {
+          // Going back to cover missed points: presenting again doesn't replay the parent's reaction.
+          s.step = "present"; s.turn = null;
+          s.revisit = s.reachedEnd || s.current !== Math.max(...s.visited);
+        }
+        state.modal = null; break;
+      }
+      case "present": {
+        const m = modules()[s.current], framing = state.framing[m.id] || Object.keys(m.framings)[0];
+        (s.framingsUsed[m.id] = s.framingsUsed[m.id] || []).push(framing);
+        log("present", { title: m.title, framing });
+        if (s.revisit) {
+          s.revisit = false;
+          if (s.reachedEnd) { s.step = "gate"; const missing = missingCoverage(); if (missing.length) state.modal = { kind: "gate", missing }; else startDecision(); }
+          else s.current = Math.max(...s.visited);
+          break;
+        }
+        parentTurn(persona().reactions[m.id], "module");
+        break;
+      }
+      case "identify": {
+        const t = s.turn; t.idChoice = el.dataset.id;
+        const correct = t.idChoice === t.reactionId;
+        s.idTotal++; if (correct) s.idCorrect++;
+        log("identify", { reaction: t.reactionId, choice: t.idChoice, correct });
+        break;
+      }
+      case "after-identify": {
+        const t = s.turn;
+        if (t.reactionId === ENGAGED) { advance(); break; }
+        t.respOptions = buildResponseOptions(t.reactionId); s.step = "respond"; break;
+      }
+      case "respond": {
+        const t = s.turn; t.respChoice = +el.dataset.i;
+        const o = t.respOptions[t.respChoice], correct = o.kind === "correct";
+        s.respTotal++; if (correct) s.respCorrect++;
+        log("respond", { reaction: t.reactionId, choice: o.kind, correct, text: o.text });
+        if (!correct) addFlag(reactionCatalog()[t.reactionId].flag_on_wrong, `Chose “${o.text}” when the parent showed: ${reactionLabel(t.reactionId)}`);
+        break;
+      }
+      case "after-respond": {
+        const r = reactionCatalog()[s.turn.reactionId];
+        if (r.teach_back) { s.step = "teachback"; break; }
+        afterTurn(); break;
+      }
+      case "teachback": {
+        const done = el.dataset.done === "1"; if (done) s.teachBacks++;
+        log("teachback", { done, reaction: s.turn.reactionId }); afterTurn(); break;
+      }
+      case "gate-continue": startDecision(); break;
+      case "end": state.modal = null; endSession(el.dataset.outcome); break;
+      case "guided-reaction": state.guidedReaction = el.dataset.id; log("guided", { reaction: el.dataset.id }); break;
+      case "guided-clear": state.guidedReaction = null; break;
+      case "guided-teachback": s.teachBacks++; log("teachback", { done: true, reaction: state.guidedReaction }); break;
+      case "guided-end": state.modal = { kind: "guided-end" }; break;
+      case "abandon": state.modal = { kind: "abandon" }; break;
+      case "close-modal": state.modal = null; break;
+      case "home": state.view = "home"; state.session = null; state.modal = null; state.guidedReaction = null; state.historyView = null; break;
+      case "open-history": {
+        state.historyView = loadSessions().find((x) => x.id === el.dataset.id);
+        state.studyIdx = C.studies.findIndex((st) => st.pack.meta.short_name === state.historyView.study);
+        state.view = "history"; break;
+      }
+      case "delete-history": if (confirm("Delete this session from this device?")) saveSessions(loadSessions().filter((x) => x.id !== el.dataset.id)); break;
+      case "export-json": { const x = state.historyView || s; download(exportName(x, "json"), JSON.stringify(x, null, 2), "application/json"); return; }
+      case "export-csv": { const x = state.historyView || s; download(exportName(x, "csv"), toCSV(x), "text/csv"); return; }
+    }
+    render();
+  });
+
+  function afterTurn() {
+    const s = state.session, t = s.turn, correct = t.respOptions[t.respChoice].kind === "correct";
+    const ends = reactionCatalog()[t.reactionId].ends_session;
+    if (ends) return endSession(ends);
+    if (t.reactionId === "overwhelmed" && correct) log("pause", {});
+    if (t.context === "opening") { s.turn = null; s.step = "present"; return; }
+    advance();
+  }
+
+  app.addEventListener("change", (ev) => {
+    const el = ev.target, s = state.session;
+    if (el.dataset.cover !== undefined) { s.coverage[modules()[s.current].id][+el.dataset.cover] = el.checked; render(); }
+    else if (el.dataset.check) s.checklist[el.dataset.check] = el.checked;
+    else if (el.dataset.flag) {
+      const set = new Set(s.manualFlags); el.checked ? set.add(el.dataset.flag) : set.delete(el.dataset.flag);
+      s.manualFlags = [...set]; persist(s);
+    }
+  });
+  app.addEventListener("input", (ev) => {
+    const el = ev.target;
+    if (el.dataset.bind) { state[el.dataset.bind] = el.value; return; }
+    if (el.dataset.bindSession) { state.session[el.dataset.bindSession] = el.value; persist(state.session); }
+  });
+  document.querySelector("[data-action=home]").addEventListener("click", () => { state.view = "home"; state.session = null; state.modal = null; state.historyView = null; render(); });
+
+  render();
+})();
+</script>
+</body>
+</html>
